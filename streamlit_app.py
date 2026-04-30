@@ -15,11 +15,20 @@ st.write('The name on your Smoothie will be:', name_on_order)
 cnx = st.connection("snowflake")
 session = cnx.session()
 
-# Load fruit options
-my_dataframe = session.table("smoothies.public.fruit_options").select(col("FRUIT_NAME"))
+# Load fruit options (✅ include SEARCH_ON)
+my_dataframe = session.table("smoothies.public.fruit_options") \
+    .select(col("FRUIT_NAME"), col("SEARCH_ON"))
 
-# Convert to list
-fruit_list = [row["FRUIT_NAME"] for row in my_dataframe.collect()]
+# Convert to dictionary (fruit → search value)
+fruit_rows = my_dataframe.collect()
+
+fruit_map = {
+    row["FRUIT_NAME"]: row["SEARCH_ON"]
+    for row in fruit_rows
+}
+
+# Fruit list for UI
+fruit_list = list(fruit_map.keys())
 
 # Multi-select
 ingredients_list = st.multiselect(
@@ -31,20 +40,26 @@ ingredients_list = st.multiselect(
 # -----------------------------
 # 🍉 Nutrition Section
 # -----------------------------
-if ingredients_list:
+ingredients_string = ''
 
-    ingredients_string = ''
+if ingredients_list:
 
     for fruit_chosen in ingredients_list:
 
         ingredients_string += fruit_chosen + ', '
 
-        # ✅ Title per fruit (like screenshot)
+        # Title per fruit
         st.subheader(f"{fruit_chosen} Nutrition Information")
 
         try:
-            # ✅ Dynamic API call (NOT hardcoded)
-            url = f"https://my.smoothiefroot.com/api/fruit/{fruit_chosen.lower()}"
+            # ✅ USE SEARCH_ON instead of fruit_chosen
+            search_value = fruit_map[fruit_chosen]
+
+            if not search_value:
+                st.error("No API mapping available for this fruit.")
+                continue
+
+            url = f"https://my.smoothiefroot.com/api/fruit/{search_value.lower()}"
             response = requests.get(url)
 
             if response.status_code == 200:
@@ -52,7 +67,7 @@ if ingredients_list:
                 data = response.json()
                 nutrition = data["nutrition"]
 
-                # ✅ Convert to table format
+                # Convert to table format
                 table_data = {
                     "family": [data["family"]] * 4,
                     "genus": [data["genus"]] * 4,
@@ -66,11 +81,11 @@ if ingredients_list:
                 st.dataframe(table_data, use_container_width=True)
 
             else:
-                # ✅ Handles fruits not in API (like Ximenia)
                 st.error("Sorry, that fruit is not in our database.")
 
-        except Exception:
+        except Exception as e:
             st.error("Error fetching data.")
+            st.write(e)
 
 # -----------------------------
 # Submit Order
