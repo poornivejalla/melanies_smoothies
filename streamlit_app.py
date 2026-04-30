@@ -1,5 +1,4 @@
-
-  # Import packages
+# Import packages
 import streamlit as st
 from snowflake.snowpark.functions import col
 import requests
@@ -22,14 +21,14 @@ my_dataframe = session.table("smoothies.public.fruit_options").select(col("FRUIT
 # Convert to list
 fruit_list = [row["FRUIT_NAME"] for row in my_dataframe.collect()]
 
-# Multi-select (max 5)
+# Multi-select
 ingredients_list = st.multiselect(
     'Choose up to 5 ingredients:',
     fruit_list,
     max_selections=5
 )
 
-# Build ingredients string
+# Build string
 ingredients_string = ", ".join(ingredients_list)
 
 # Submit button
@@ -49,7 +48,6 @@ if time_to_insert:
             INSERT INTO smoothies.public.orders (name_on_order, ingredients, order_filled)
             VALUES ('{name_on_order}', '{ingredients_string}', FALSE)
             """
-
             session.sql(insert_sql).collect()
             st.success("✅ Order submitted successfully!")
 
@@ -57,26 +55,36 @@ if time_to_insert:
             st.error("Something went wrong while placing the order.")
             st.write(e)
 
-# --- Smoothiefroot API Section ---
+# ---------------------------------------
+# 🍉 Smoothiefroot API Section (FIXED)
+# ---------------------------------------
+
 st.subheader("🍉 Smoothiefroot Nutrition Info")
 
 if ingredients_list:
-    fruit = ingredients_list[0].lower()   # take first selected fruit
+
+    fruit = ingredients_list[0].lower()
 
     response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{fruit}")
 
     if response.status_code == 200:
         data = response.json()
 
-        st.write(f"### {data['name']} Nutrition")
-        st.write(f"Family: {data['family']}")
-        st.write(f"Genus: {data['genus']}")
+        # ✅ Convert nested JSON into table format
+        nutrition = data["nutrition"]
 
-        st.write("#### Nutrition Details")
-        st.write(f"Carbs: {data['nutrition']['carbs']}")
-        st.write(f"Fat: {data['nutrition']['fat']}")
-        st.write(f"Protein: {data['nutrition']['protein']}")
-        st.write(f"Sugar: {data['nutrition']['sugar']}")
+        table_data = {
+            "family": [data["family"]] * 4,
+            "genus": [data["genus"]] * 4,
+            "id": [data["id"]] * 4,
+            "name": [data["name"]] * 4,
+            "nutrition": list(nutrition.keys()),
+            "value": list(nutrition.values()),
+            "order": [data["order"]] * 4
+        }
+
+        # ✅ Display nicely like your screenshot
+        st.dataframe(table_data, use_container_width=True)
 
     else:
         st.error("Failed to fetch smoothie nutrition data")
