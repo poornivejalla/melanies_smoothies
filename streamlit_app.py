@@ -32,13 +32,12 @@ ingredients_list = st.multiselect(
 # -----------------------------
 # 🍉 Nutrition Section
 # -----------------------------
-ingredients_string = ''
-
 if ingredients_list:
 
-    for fruit_chosen in ingredients_list:
+    # ✅ FIX: Proper string (no trailing comma)
+    ingredients_string = ", ".join(ingredients_list)
 
-        ingredients_string += fruit_chosen + ', '
+    for fruit_chosen in ingredients_list:
 
         # Get SEARCH_ON value
         try:
@@ -59,7 +58,6 @@ if ingredients_list:
         st.subheader(f"{fruit_chosen} Nutrition Information")
 
         try:
-            # API call
             url = f"https://my.smoothiefroot.com/api/fruit/{search_on.lower()}"
             response = requests.get(url)
 
@@ -68,9 +66,15 @@ if ingredients_list:
                 continue
 
             data = response.json()
+
+            # ✅ FIX: Check key exists
+            if "nutrition" not in data:
+                st.warning(f"{fruit_chosen} not available in nutrition database.")
+                continue
+
             nutrition = data["nutrition"]
 
-            # Clean table display
+            # Clean table
             table_data = {
                 "Nutrition": list(nutrition.keys()),
                 "Value": list(nutrition.values())
