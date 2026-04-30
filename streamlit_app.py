@@ -55,6 +55,15 @@ if time_to_insert:
         except Exception as e:
             st.error("Something went wrong while placing the order.")
             st.write(e)
-            import requests  
-smoothiefroot_response = requests.get("[https://my.smoothiefroot.com/api/fruit/watermelon](https://my.smoothiefroot.com/api/fruit/watermelon)")  
-st.text(smoothiefroot_response)
+           # --- Smoothiefroot API Section ---
+import requests
+
+st.subheader("🍉 Smoothiefroot Nutrition Info")
+
+response = requests.get("https://my.smoothiefroot.com/api/fruit/watermelon")
+
+if response.status_code == 200:
+    data = response.json()
+    st.json(data)
+else:
+    st.error("Failed to fetch smoothie nutrition data")
