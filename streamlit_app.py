@@ -1,6 +1,8 @@
-# Import packages
+
+  # Import packages
 import streamlit as st
 from snowflake.snowpark.functions import col
+import requests
 
 # Title
 st.title("Customize Your Smoothie! 🥤")
@@ -10,7 +12,7 @@ st.write("Choose the fruits you want in your custom Smoothie!")
 name_on_order = st.text_input('Name on Smoothie:')
 st.write('The name on your Smoothie will be:', name_on_order)
 
-# ✅ Updated Snowflake connection
+# Snowflake connection
 cnx = st.connection("snowflake")
 session = cnx.session()
 
@@ -49,21 +51,32 @@ if time_to_insert:
             """
 
             session.sql(insert_sql).collect()
-
             st.success("✅ Order submitted successfully!")
 
         except Exception as e:
             st.error("Something went wrong while placing the order.")
             st.write(e)
-           # --- Smoothiefroot API Section ---
-import requests
 
+# --- Smoothiefroot API Section ---
 st.subheader("🍉 Smoothiefroot Nutrition Info")
 
-response = requests.get("https://my.smoothiefroot.com/api/fruit/watermelon")
+if ingredients_list:
+    fruit = ingredients_list[0].lower()   # take first selected fruit
 
-if response.status_code == 200:
-    data = response.json()
-    st.json(data)
-else:
-    st.error("Failed to fetch smoothie nutrition data")
+    response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{fruit}")
+
+    if response.status_code == 200:
+        data = response.json()
+
+        st.write(f"### {data['name']} Nutrition")
+        st.write(f"Family: {data['family']}")
+        st.write(f"Genus: {data['genus']}")
+
+        st.write("#### Nutrition Details")
+        st.write(f"Carbs: {data['nutrition']['carbs']}")
+        st.write(f"Fat: {data['nutrition']['fat']}")
+        st.write(f"Protein: {data['nutrition']['protein']}")
+        st.write(f"Sugar: {data['nutrition']['sugar']}")
+
+    else:
+        st.error("Failed to fetch smoothie nutrition data")
