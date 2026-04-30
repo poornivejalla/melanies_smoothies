@@ -7,7 +7,7 @@ import requests
 st.title("Customize Your Smoothie! 🥤")
 st.write("Choose the fruits you want in your custom Smoothie!")
 
-# Input: Name
+# Input
 name_on_order = st.text_input('Name on Smoothie:')
 st.write('The name on your Smoothie will be:', name_on_order)
 
@@ -15,25 +15,21 @@ st.write('The name on your Smoothie will be:', name_on_order)
 cnx = st.connection("snowflake")
 session = cnx.session()
 
-# Load fruit options (✅ include SEARCH_ON)
+# Load dataframe (FRUIT_NAME + SEARCH_ON)
 my_dataframe = session.table("smoothies.public.fruit_options") \
     .select(col("FRUIT_NAME"), col("SEARCH_ON"))
 
-# Convert to dictionary (fruit → search value)
-fruit_rows = my_dataframe.collect()
+# ✅ Convert to Pandas (IMPORTANT STEP)
+pd_df = my_dataframe.to_pandas()
 
-fruit_map = {
-    row["FRUIT_NAME"]: row["SEARCH_ON"]
-    for row in fruit_rows
-}
-
-# Fruit list for UI
-fruit_list = list(fruit_map.keys())
+# Show for debugging (you can comment later)
+# st.dataframe(pd_df)
+# st.stop()
 
 # Multi-select
 ingredients_list = st.multiselect(
     'Choose up to 5 ingredients:',
-    fruit_list,
+    pd_df["FRUIT_NAME"],
     max_selections=5
 )
 
@@ -48,18 +44,25 @@ if ingredients_list:
 
         ingredients_string += fruit_chosen + ', '
 
-        # Title per fruit
+        # ✅ GET SEARCH VALUE USING LOC (CORE STEP)
+        try:
+            search_on = pd_df.loc[
+                pd_df["FRUIT_NAME"] == fruit_chosen,
+                "SEARCH_ON"
+            ].iloc[0]
+
+            st.write(f"The search value for {fruit_chosen} is {search_on}.")
+
+        except:
+            st.error("Search value not found.")
+            continue
+
+        # Title
         st.subheader(f"{fruit_chosen} Nutrition Information")
 
         try:
-            # ✅ USE SEARCH_ON instead of fruit_chosen
-            search_value = fruit_map[fruit_chosen]
-
-            if not search_value:
-                st.error("No API mapping available for this fruit.")
-                continue
-
-            url = f"https://my.smoothiefroot.com/api/fruit/{search_value.lower()}"
+            # ✅ USE search_on (NOT fruit_chosen)
+            url = f"https://my.smoothiefroot.com/api/fruit/{search_on.lower()}"
             response = requests.get(url)
 
             if response.status_code == 200:
@@ -67,7 +70,7 @@ if ingredients_list:
                 data = response.json()
                 nutrition = data["nutrition"]
 
-                # Convert to table format
+                # Convert to table
                 table_data = {
                     "family": [data["family"]] * 4,
                     "genus": [data["genus"]] * 4,
@@ -81,24 +84,22 @@ if ingredients_list:
                 st.dataframe(table_data, use_container_width=True)
 
             else:
-                st.error("Sorry, that fruit is not in our database.")
+                st.error("Fruit not found in SmoothieFroot API")
 
         except Exception as e:
-            st.error("Error fetching data.")
+            st.error("Error fetching data")
             st.write(e)
 
 # -----------------------------
 # Submit Order
 # -----------------------------
-time_to_insert = st.button('Submit Order')
-
-if time_to_insert:
+if st.button('Submit Order'):
 
     if not name_on_order:
         st.error("Please enter a name.")
 
     elif not ingredients_list:
-        st.error("Please select at least one ingredient.")
+        st.error("Please select ingredients.")
 
     else:
         try:
@@ -111,5 +112,5 @@ if time_to_insert:
             st.success("✅ Order submitted successfully!")
 
         except Exception as e:
-            st.error("Something went wrong while placing the order.")
+            st.error("Insert failed")
             st.write(e)
